@@ -18,7 +18,16 @@ interface ApiService {
 
 object ApiConstants {
     const val BASE_URL = "https://api.groq.com/"
-    // TODO: API key'i güvenli bir şekilde environment variable'dan alın
-    // Geçici olarak buraya kendi API key'inizi ekleyin
+    
+    // ⚠️ ÖNEMLİ: Buraya kendi Groq API key'inizi yazın!
+    // Groq Console'dan (https://console.groq.com/) ücretsiz API key alabilirsiniz
+    // Örnek: "gsk_abcd1234efgh5678ijkl9012mnop3456qrst7890uvwx1234yz5678ab"
     const val API_KEY = "YOUR_GROQ_API_KEY_HERE"
+    
+    // API key'in doğru ayarlanıp ayarlanmadığını kontrol et
+    fun isApiKeyValid(): Boolean {
+        return API_KEY != "YOUR_GROQ_API_KEY_HERE" && 
+               API_KEY.isNotBlank() && 
+               API_KEY.startsWith("gsk_")
+    }
 } 

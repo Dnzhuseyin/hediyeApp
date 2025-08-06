@@ -15,6 +15,13 @@ class GiftRepository {
     suspend fun getGiftRecommendations(answers: List<UserAnswer>): Result<List<GiftRecommendation>> {
         return withContext(Dispatchers.IO) {
             try {
+                // API key kontrolü
+                if (!ApiConstants.isApiKeyValid()) {
+                    return@withContext Result.failure(
+                        Exception("❌ API Key Hatası: Lütfen ApiService.kt dosyasında API_KEY değerini kendi Groq API key'iniz ile değiştirin. Groq Console'dan (https://console.groq.com/) ücretsiz API key alabilirsiniz.")
+                    )
+                }
+                
                 val userProfile = buildUserProfile(answers)
                 val prompt = buildPrompt(userProfile)
                 
@@ -34,6 +41,12 @@ class GiftRepository {
                     val chatResponse = response.body()
                     val content = chatResponse?.choices?.firstOrNull()?.message?.content ?: ""
                     
+                    if (content.isEmpty()) {
+                        return@withContext Result.failure(
+                            Exception("❌ API Yanıt Hatası: Groq API'den boş yanıt geldi. API key'inizi kontrol edin.")
+                        )
+                    }
+                    
                     // Try to parse JSON response
                     val recommendations = try {
                         parseRecommendations(content)
@@ -42,12 +55,32 @@ class GiftRepository {
                         parseTextToRecommendations(content)
                     }
                     
+                    if (recommendations.isEmpty()) {
+                        return@withContext Result.failure(
+                            Exception("❌ Parse Hatası: API yanıtından hediye önerisi çıkarılamadı.")
+                        )
+                    }
+                    
                     Result.success(recommendations)
                 } else {
-                    Result.failure(Exception("API hatası: ${response.code()} - ${response.message()}"))
+                    val errorMessage = when (response.code()) {
+                        401 -> "❌ Yetkilendirme Hatası (401): API key'iniz geçersiz. Lütfen Groq Console'dan yeni bir key alın."
+                        402 -> "❌ Ödeme Hatası (402): API kredi limiti aşıldı. Groq Console'da kredi durumunuzu kontrol edin."
+                        429 -> "❌ Rate Limit Hatası (429): Çok fazla istek gönderdiniz. Biraz bekleyip tekrar deneyin."
+                        500 -> "❌ Sunucu Hatası (500): Groq API'de geçici sorun. Biraz bekleyip tekrar deneyin."
+                        else -> "❌ API Hatası: ${response.code()} - ${response.message()}"
+                    }
+                    Result.failure(Exception(errorMessage))
                 }
             } catch (e: Exception) {
-                Result.failure(e)
+                val errorMessage = when {
+                    e.message?.contains("UnknownHostException") == true -> 
+                        "❌ İnternet Bağlantısı Hatası: İnternet bağlantınızı kontrol edin."
+                    e.message?.contains("timeout") == true -> 
+                        "❌ Zaman Aşımı Hatası: İnternet bağlantınız yavaş olabilir. Tekrar deneyin."
+                    else -> "❌ Genel Hata: ${e.message}"
+                }
+                Result.failure(Exception(errorMessage))
             }
         }
     }
