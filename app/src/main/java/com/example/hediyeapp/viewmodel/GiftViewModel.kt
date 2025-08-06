@@ -65,7 +65,7 @@ class GiftViewModel : ViewModel() {
         
         viewModelScope.launch {
             val answersList = _answers.value.values.toList()
-            val result = repository.getGiftRecommendations(answersList)
+            val result = repository.getGiftRecommendations(answersList, questions)
             
             result.fold(
                 onSuccess = { recommendations ->
@@ -78,7 +78,7 @@ class GiftViewModel : ViewModel() {
                 onFailure = { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.message ?: "Bilinmeyen hata"
+                        error = error.message
                     )
                 }
             )
