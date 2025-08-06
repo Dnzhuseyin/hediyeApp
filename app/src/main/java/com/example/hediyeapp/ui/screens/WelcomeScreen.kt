@@ -4,8 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -77,7 +77,7 @@ fun WelcomeScreen(
         Column {
             // Features
             FeatureRow(
-                icon = Icons.Default.Android,
+                icon = Icons.Default.Settings,
                 text = "Yapay zeka ile kişiselleştirilmiş öneriler"
             )
             

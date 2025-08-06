@@ -6,8 +6,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Launch
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -232,7 +232,7 @@ private fun GiftRecommendationCard(
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Launch,
+                        imageVector = Icons.Default.ArrowForward,
                         contentDescription = "Shopping Link",
                         modifier = Modifier.size(18.dp)
                     )
