@@ -1,6 +1,7 @@
 package com.example.hediyeapp.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -8,7 +9,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -165,6 +169,8 @@ private fun GiftRecommendationCard(
     recommendation: GiftRecommendation,
     onLinkClick: (String) -> Unit
 ) {
+    var isFavorite by remember { mutableStateOf(false) }
+    
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -176,13 +182,32 @@ private fun GiftRecommendationCard(
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
-            // Gift title
-            Text(
-                text = recommendation.title,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF2D3748)
-            )
+            // Header with title and favorite button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Text(
+                    text = recommendation.title,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2D3748),
+                    modifier = Modifier.weight(1f)
+                )
+                
+                IconButton(
+                    onClick = { isFavorite = !isFavorite },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                        tint = if (isFavorite) Color.Red else Color.Gray,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
             
             Spacer(modifier = Modifier.height(8.dp))
             
@@ -214,35 +239,106 @@ private fun GiftRecommendationCard(
                 }
             }
             
-            // Shopping link if available
+            // Action buttons
             if (recommendation.link.isNotBlank()) {
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                OutlinedButton(
-                    onClick = { onLinkClick(recommendation.link) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFF6B73FF)
+                // Main purchase button
+                Button(
+                    onClick = { 
+                        onLinkClick(recommendation.link)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF4CAF50), // Green color for purchase
+                        contentColor = Color.White
                     ),
-                    border = ButtonDefaults.outlinedButtonBorder.copy(
-                        brush = Brush.linearGradient(
-                            listOf(Color(0xFF6B73FF), Color(0xFF6B73FF))
-                        )
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 4.dp,
+                        pressedElevation = 8.dp
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ArrowForward,
-                        contentDescription = "Shopping Link",
-                        modifier = Modifier.size(18.dp)
+                        imageVector = Icons.Default.ShoppingCart,
+                        contentDescription = "Shopping Cart",
+                        modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Satın Almak İçin Tıkla",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Default.ArrowForward,
+                        contentDescription = "Arrow Forward",
+                        modifier = Modifier.size(18.dp)
                     )
                 }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Secondary action buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Share button
+                    OutlinedButton(
+                        onClick = { /* TODO: Implement share functionality */ },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFF6B73FF)
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Share",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Paylaş",
+                            fontSize = 14.sp
+                        )
+                    }
+                    
+                    // Save for later button
+                    OutlinedButton(
+                        onClick = { isFavorite = !isFavorite },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = if (isFavorite) Color.Red else Color(0xFF6B73FF)
+                        )
+                    ) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = "Save",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (isFavorite) "Kaydedildi" else "Kaydet",
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+                
+                // Additional info text
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "🔒 Güvenli alışveriş sitesine yönlendirileceksiniz",
+                    fontSize = 12.sp,
+                    color = Color(0xFF666666),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }
