@@ -33,6 +33,7 @@ fun ResultsScreen(
     onStartOver: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val purchaseButtonStates by viewModel.purchaseButtonStates.collectAsState()
     val uriHandler = LocalUriHandler.current
     
     val gradientColors = listOf(
@@ -98,12 +99,23 @@ fun ResultsScreen(
             items(uiState.recommendations) { recommendation ->
                 GiftRecommendationCard(
                     recommendation = recommendation,
+                    isLoading = viewModel.isPurchaseButtonLoading(recommendation.title),
                     onLinkClick = { link ->
                         if (link.isNotBlank()) {
                             try {
                                 uriHandler.openUri(link)
                             } catch (e: Exception) {
                                 // Handle error - link might be invalid
+                            }
+                        }
+                    },
+                    onSmartSearchClick = { recommendation ->
+                        // Gerçek zamanlı web scraping başlat
+                        viewModel.findRealTimeLink(recommendation) { foundLink ->
+                            try {
+                                uriHandler.openUri(foundLink)
+                            } catch (e: Exception) {
+                                // Handle error
                             }
                         }
                     }
@@ -167,7 +179,9 @@ fun ResultsScreen(
 @Composable
 private fun GiftRecommendationCard(
     recommendation: GiftRecommendation,
-    onLinkClick: (String) -> Unit
+    isLoading: Boolean,
+    onLinkClick: (String) -> Unit,
+    onSmartSearchClick: (GiftRecommendation) -> Unit
 ) {
     var isFavorite by remember { mutableStateOf(false) }
     
@@ -240,35 +254,50 @@ private fun GiftRecommendationCard(
             }
             
             // Action buttons
-            if (recommendation.link.isNotBlank()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Main purchase button
-                Button(
-                    onClick = { 
-                        onLinkClick(recommendation.link)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4CAF50), // Green color for purchase
-                        contentColor = Color.White
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(
-                        defaultElevation = 4.dp,
-                        pressedElevation = 8.dp
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Smart Search Button (Ana satın alma butonu)
+            Button(
+                onClick = { 
+                    if (!isLoading) {
+                        onSmartSearchClick(recommendation)
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isLoading) Color.Gray else Color(0xFF4CAF50),
+                    contentColor = Color.White
+                ),
+                enabled = !isLoading,
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = 4.dp,
+                    pressedElevation = 8.dp
+                )
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
                     )
-                ) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Aranıyor...",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                } else {
                     Icon(
                         imageVector = Icons.Default.ShoppingCart,
-                        contentDescription = "Shopping Cart",
+                        contentDescription = "Smart Search",
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Satın Almak İçin Tıkla",
+                        text = "Akıllı Arama ile Satın Al",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -279,67 +308,96 @@ private fun GiftRecommendationCard(
                         modifier = Modifier.size(18.dp)
                     )
                 }
-                
+            }
+            
+            // Eğer link zaten varsa, direkt link butonu
+            if (recommendation.link.isNotBlank() && !isLoading) {
                 Spacer(modifier = Modifier.height(8.dp))
                 
-                // Secondary action buttons
-                Row(
+                OutlinedButton(
+                    onClick = { onLinkClick(recommendation.link) },
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFF6B73FF)
+                    )
                 ) {
-                    // Share button
-                    OutlinedButton(
-                        onClick = { /* TODO: Implement share functionality */ },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFF6B73FF)
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = "Share",
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Paylaş",
-                            fontSize = 14.sp
-                        )
-                    }
-                    
-                    // Save for later button
-                    OutlinedButton(
-                        onClick = { isFavorite = !isFavorite },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = if (isFavorite) Color.Red else Color(0xFF6B73FF)
-                        )
-                    ) {
-                        Icon(
-                            imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = "Save",
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (isFavorite) "Kaydedildi" else "Kaydet",
-                            fontSize = 14.sp
-                        )
-                    }
+                    Text(
+                        text = "Direkt Linke Git",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Default.ArrowForward,
+                        contentDescription = "Direct Link",
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Secondary action buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Share button
+                OutlinedButton(
+                    onClick = { /* TODO: Implement share functionality */ },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFF6B73FF)
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = "Share",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Paylaş",
+                        fontSize = 14.sp
+                    )
                 }
                 
-                // Additional info text
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "🔒 Güvenli alışveriş sitesine yönlendirileceksiniz",
-                    fontSize = 12.sp,
-                    color = Color(0xFF666666),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                // Save for later button
+                OutlinedButton(
+                    onClick = { isFavorite = !isFavorite },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = if (isFavorite) Color.Red else Color(0xFF6B73FF)
+                    )
+                ) {
+                    Icon(
+                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "Save",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (isFavorite) "Kaydedildi" else "Kaydet",
+                        fontSize = 14.sp
+                    )
+                }
             }
+            
+            // Additional info text
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = if (isLoading) 
+                    "🔍 En iyi fiyatları buluyor..." 
+                else 
+                    "🔒 Güvenli alışveriş sitesine yönlendirileceksiniz",
+                fontSize = 12.sp,
+                color = if (isLoading) Color(0xFF4CAF50) else Color(0xFF666666),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 } 

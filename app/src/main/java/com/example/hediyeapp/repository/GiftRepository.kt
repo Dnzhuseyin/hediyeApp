@@ -8,9 +8,12 @@ import com.example.hediyeapp.data.Question
 import com.example.hediyeapp.data.UserAnswer
 import com.example.hediyeapp.network.ApiConstants
 import com.example.hediyeapp.network.NetworkClient
+import com.example.hediyeapp.network.WebScrapingService
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.net.SocketTimeoutException
@@ -19,6 +22,7 @@ import java.util.concurrent.TimeoutException
 class GiftRepository {
 
     private val apiService = NetworkClient.apiService
+    private val webScrapingService = WebScrapingService()
 
     suspend fun getGiftRecommendations(
         answers: List<UserAnswer>,
@@ -64,16 +68,18 @@ class GiftRepository {
                         Result.failure(Exception("⚠️ AI'dan boş yanıt alındı. Lütfen tekrar deneyin."))
                     } else {
                         // JSON parsing dene, başarısız olursa text parsing yap
-                        val recommendations = try {
+                        val initialRecommendations = try {
                             parseJsonResponse(content)
                         } catch (e: Exception) {
                             parseTextResponse(content)
                         }
 
-                        if (recommendations.isEmpty()) {
+                        if (initialRecommendations.isEmpty()) {
                             Result.failure(Exception("⚠️ Hediye önerileri bulunamadı. Lütfen tekrar deneyin."))
                         } else {
-                            Result.success(recommendations)
+                            // Web scraping ile gerçek satın alma linklerini bul
+                            val enhancedRecommendations = enhanceWithRealLinks(initialRecommendations)
+                            Result.success(enhancedRecommendations)
                         }
                     }
                 }
@@ -99,6 +105,28 @@ class GiftRepository {
         } catch (e: Exception) {
             Result.failure(Exception("❌ Beklenmeyen hata: ${e.message ?: "Bilinmeyen hata"}"))
         }
+    }
+
+    // Web scraping ile gerçek satın alma linklerini ekle
+    private suspend fun enhanceWithRealLinks(recommendations: List<GiftRecommendation>): List<GiftRecommendation> = withContext(Dispatchers.IO) {
+        try {
+            // Paralel olarak tüm ürünler için link ara
+            val enhancedRecommendations = recommendations.map { recommendation ->
+                async {
+                    webScrapingService.searchProductLinks(recommendation)
+                }
+            }.awaitAll()
+            
+            return@withContext enhancedRecommendations
+        } catch (e: Exception) {
+            // Hata durumunda orijinal önerileri döndür
+            return@withContext recommendations
+        }
+    }
+
+    // Tek bir ürün için gerçek zamanlı link arama
+    suspend fun findRealTimeProductLink(recommendation: GiftRecommendation): GiftRecommendation = withContext(Dispatchers.IO) {
+        return@withContext webScrapingService.searchProductLinks(recommendation)
     }
 
     private fun buildUserProfile(answers: List<UserAnswer>, questions: List<Question>): String {
@@ -132,7 +160,7 @@ $userProfile
 
 GÖREVLER:
 1. Kullanıcı profiline uygun 3 hediye öner
-2. Her hediye için net bir başlık, detaylı açıklama, yaklaşık fiyat ve satın alma önerisi ver
+2. Her hediye için net bir başlık, detaylı açıklama, yaklaşık fiyat ver
 3. Yanıtını MUTLAKA aşağıdaki JSON formatında ver:
 
 [
@@ -140,23 +168,26 @@ GÖREVLER:
     "title": "Hediye Adı",
     "description": "Detaylı açıklama (neden bu hediye perfect, nasıl kullanılır, ne için özel)",
     "price": "₺200-300 arası",
-    "link": "Bu hediyeyi Trendyol, Amazon, Hepsiburada gibi platformlarda bulabilirsin"
+    "link": ""
   },
   {
     "title": "İkinci Hediye",
     "description": "İkinci hediye için detaylı açıklama",
     "price": "₺150-250 arası", 
-    "link": "Bu hediyeyi GittiGidiyor, N11, MediaMarkt gibi platformlarda bulabilirsin"
+    "link": ""
   },
   {
     "title": "Üçüncü Hediye",
     "description": "Üçüncü hediye için detaylı açıklama",
     "price": "₺100-200 arası",
-    "link": "Bu hediyeyi yerel mağazalar veya online platformlarda bulabilirsin"
+    "link": ""
   }
 ]
 
-ÖNEMLİ: Yanıtın sadece JSON array olsun, başka metin ekleme!
+ÖNEMLİ: 
+- Yanıtın sadece JSON array olsun, başka metin ekleme!
+- Link alanını boş bırak, gerçek linkler otomatik olarak bulunacak
+- Türkiye'de satılan gerçek ürünler öner
         """.trimIndent()
     }
 
@@ -186,7 +217,7 @@ GÖREVLER:
             var currentTitle = ""
             var currentDescription = ""
             var currentPrice = "Fiyat belirtilmemiş"
-            var currentLink = "Online mağazalarda bulabilirsiniz"
+            var currentLink = "" // Boş bırak, web scraping ile doldurulacak
             
             lines.forEach { line ->
                 val trimmed = line.trim()
@@ -243,19 +274,19 @@ GÖREVLER:
                 title = "Kişiselleştirilmiş Hediye",
                 description = "Sevdiklerinize özel, kişiselleştirilmiş bir hediye hazırlayın. İsim, fotoğraf veya özel mesaj ekleyebileceğiniz ürünler her zaman değerlidir.",
                 price = "₺100-300 arası",
-                link = "Trendyol, Hepsiburada veya yerel hediye dükkanlarında bulabilirsiniz"
+                link = "" // Web scraping ile doldurulacak
             ),
             GiftRecommendation(
                 title = "Deneyim Hediyesi",
                 description = "Spa günü, konser bileti, yemek kursu veya seyahat gibi unutulmaz anılar yaratacak deneyimler hediye edin.",
                 price = "₺200-500 arası", 
-                link = "Deneyim platformları, Groupon veya yerel etkinlik organizatörlerinden bulabilirsiniz"
+                link = "" // Web scraping ile doldurulacak
             ),
             GiftRecommendation(
                 title = "Hobiye Yönelik Hediye",
                 description = "Sevdiklerinizin hobileri ve ilgi alanlarına uygun, kaliteli bir hediye seçin. Bu her zaman doğru tercih olacaktır.",
                 price = "₺150-400 arası",
-                link = "Amazon, GittiGidiyor veya hobiye özel mağazalardan temin edebilirsiniz"
+                link = "" // Web scraping ile doldurulacak
             )
         )
     }
